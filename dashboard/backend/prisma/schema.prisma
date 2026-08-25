@@ -1,0 +1,61 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+// "sqlite" para desarrollo local (no hay Postgres local) — cambiar a "postgresql" solo antes
+// de desplegar en Railway, igual que en secop-agentes (ver docs/despliegue-dashboard.md).
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Un solo tenant (la aseguradora) — a diferencia de secop-agentes no hay múltiples razones
+// sociales cotizando, por eso no existe un modelo Empresa aquí.
+//
+// estadoSecop: "adjudicado" | "celebrado" — estado real del proceso en SECOP II.
+//   "adjudicado": el dataset de Procesos de Contratación (p6dx-8zbt) marca adjudicado='Si'.
+//   "celebrado": el proceso ya tiene un contrato firmado en el dataset de Contratos
+//     Electrónicos (jbjy-vk9h) — no existe un estado literal "Celebrado" en los datos, se
+//     infiere de que el contrato ya existe (fecha_de_firma) con estado_contrato distinto de
+//     Borrador/Cancelado/enviado Proveedor/En aprobación (ver CLAUDE.md).
+// Un mismo proceso puede pasar de "adjudicado" a "celebrado" en corridas sucesivas del Scout;
+// nunca al revés (ver crearProceso en procesos.service.ts).
+//
+// estadoComercial: dominio exclusivo del equipo de ventas, el Scout nunca lo toca.
+model Proceso {
+  id                    String    @id @default(cuid())
+  idProceso             String    @unique
+  entidad               String
+  nitEntidad            String?
+  departamentoEntidad   String?
+  ciudadEntidad         String?
+  objeto                String
+  modalidad             String?
+  tipoContrato          String?
+  estadoSecop           String
+  valor                 Float?
+  fechaAdjudicacion     DateTime?
+  fechaFirma            DateTime?
+  proveedorNombre       String?
+  proveedorNit          String?
+  proveedorDepartamento String?
+  proveedorCiudad       String?
+  representanteLegalNombre    String?
+  representanteLegalDireccion String?
+  urlProceso            String?
+  // Link a la búsqueda avanzada de RUES (siempre el mismo, no acepta NIT por query param —
+  // verificado en vivo 2026-08-24) para que el vendedor confirme el NIT/estado de la matrícula
+  // en un clic. RUES público NO expone teléfono/correo (solo en su certificado de pago), así
+  // que esos datos no se pueden traer automáticamente — ver CLAUDE.md.
+  urlRues               String?
+  // Contacto capturado a mano por el equipo comercial (llamando a la entidad, buscando en
+  // RUES/Google, etc.) — no viene de ningún scraper. Ver PATCH /:id/contacto.
+  direccionContacto     String?
+  telefonoContacto      String?
+  correoContacto        String?
+  contactoActualizadoEn DateTime?
+  estadoComercial       String    @default("nuevo")
+  notasComerciales      String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+}

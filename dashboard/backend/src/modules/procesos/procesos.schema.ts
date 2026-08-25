@@ -25,6 +25,10 @@ export const CrearProcesoSchema = z.object({
   representanteLegalDireccion: z.string().optional(),
   urlProceso: z.string().url().optional(),
   urlRues: z.string().url().optional(),
+  sitioWeb: z.string().optional(),
+  // Sugerencia del Scout (dataset público de contacto) — solo se aplica si el registro es
+  // nuevo o el campo sigue vacío, ver crearProceso en procesos.service.ts.
+  correoContacto: z.string().optional(),
 });
 
 export const ActualizarEstadoComercialSchema = z.object({

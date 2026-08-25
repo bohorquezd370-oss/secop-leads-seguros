@@ -71,11 +71,32 @@ Comercio) para completar teléfono/correo del proveedor adjudicado:
   prellenan el campo) — el link `urlRues` en cada proceso apunta siempre a la misma página base;
   el humano escribe el NIT ahí.
 
-**Decisión del usuario (2026-08-24): no se construye scraper de RUES.** En su lugar, el modelo
-`Proceso` tiene campos de contacto (`telefonoContacto`, `correoContacto`, `direccionContacto`,
-`contactoActualizadoEn`) que el equipo comercial llena a mano desde el panel de detalle
-(`ProcesoDetail.tsx`) después de confirmar el NIT en RUES, llamar a la entidad, o buscar la
-empresa por otros medios. No hay ningún proceso automático que los complete.
+**Decisión del usuario (2026-08-24): no se construye scraper de RUES.** El link a RUES
+(`urlRues`) sigue existiendo, pero como esa plataforma tampoco permite deep-linking a la ficha
+de una empresa (verificado en vivo 2026-08-25: la URL de detalle no lleva NIT ni identificador
+alguno, y los query params no prellenan el formulario), el botón "Copiar NIT y buscar en RUES"
+(`lib/rues.ts`) al menos copia el NIT al portapapeles antes de abrir la página — solo sirve para
+confirmar NIT/estado de matrícula, nunca trae contacto.
+
+**Actualización (2026-08-25): sí existe una fuente pública de correo/sitio web.** El dataset
+`4ex9-j3n8` ("SECOP II - Contacto Entidades y Proveedores" en datos.gov.co) es público, sin
+login ni captcha, y trae `correo_electronico`, `correo_representante_legal` y `website` por
+`nit_entidad` — verificado con 1.1M+ registros con correo real y 1.6M+ con correo de
+representante legal. El Scout (`buscarContactosProveedores` en `scout/src/client.ts`) consulta
+este dataset en lotes (`IN (...)`) por cada corrida y sugiere `correoContacto`/`sitioWeb`
+automáticamente. **No tiene teléfono** (solo `numero_fax`, casi siempre vacío) — ese campo
+(`telefonoContacto`) y `direccionContacto` siguen siendo 100% manuales, sin fuente pública
+gratuita conocida. El equipo comercial los llena desde el panel de detalle
+(`ProcesoDetail.tsx`), y puede corregir el correo sugerido si hace falta — el Scout nunca pisa
+un `correoContacto` que ya tenga valor (ver `crearProceso` en `procesos.service.ts`), sea porque
+él mismo lo sugirió antes o porque un humano lo editó.
+
+**Importante — se descartó usar las credenciales de SECOP II de otro proyecto.** El usuario
+sugirió usar el login de Verde Ecológico (`secop-agentes`, empresa distinta a la de este
+proyecto) para entrar a un supuesto "directorio SECOP" autenticado. Se rechazó: mezclaría
+credenciales de un negocio no relacionado, iría en contra de la regla explícita de
+`secop-agentes` de nunca automatizar el login/captcha de SECOP transaccional, y el dataset
+público de arriba resuelve el mismo problema sin ese riesgo.
 
 ---
 
@@ -122,15 +143,18 @@ deduplicados por `idProceso`).
       comercial), panel de detalle con datos de la empresa adjudicataria, formulario de contacto
       manual, seguimiento comercial. Verificado visualmente en navegador (Playwright) contra
       datos reales — sin errores de consola.
-- [x] Investigación de RUES completa (sección 3) — decisión: sin scraper, contacto manual.
-- [ ] Repo en GitHub — pendiente de crear (el usuario pidió repo nuevo, separado de
-      `secop-agentes`). No hay `gh` autenticado en este entorno.
-- [ ] Cron cada 3 horas — pendiente de configurar (skill `/schedule`, mismo patrón que
-      `secop-agentes` que corre el scout diario en la nube). El scout no depende de navegador
-      (a diferencia de `sesion-asistida/` en el proyecto original), así que puede correr
-      completamente en la nube sin intervención humana.
-- [ ] Despliegue a Railway — pendiente, seguir `docs/despliegue-dashboard.md` (a crear/adaptar
-      del proyecto original) cuando el usuario lo pida.
+- [x] Investigación de RUES completa (sección 3) — decisión: sin scraper de RUES.
+- [x] Correo/sitio web público del proveedor (`4ex9-j3n8`) integrado al Scout — ~50% de
+      cobertura real en pruebas (173/344 procesos con correo real). Teléfono/dirección siguen
+      siendo manuales.
+- [x] Repo en GitHub — https://github.com/bohorquezd370-oss/secop-leads-seguros (público, por
+      decisión del usuario para simplificar el acceso de la rutina en la nube).
+- [x] Cron cada 3 horas — rutina en la nube (skill `/schedule`) creada, cron `40 */3 * * *`
+      UTC. El scout no depende de navegador (a diferencia de `sesion-asistida/` en el proyecto
+      original), así que corre completamente en la nube sin intervención humana.
+- [x] Desplegado a Railway — https://secop-leads-seguros-production.up.railway.app (backend +
+      frontend en un solo servicio, Postgres administrado). Sin login todavía — decisión
+      explícita del usuario (2026-08-24), igual que en `secop-agentes`.
 
 ---
 

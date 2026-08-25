@@ -48,8 +48,14 @@ model Proceso {
   // en un clic. RUES público NO expone teléfono/correo (solo en su certificado de pago), así
   // que esos datos no se pueden traer automáticamente — ver CLAUDE.md.
   urlRues               String?
-  // Contacto capturado a mano por el equipo comercial (llamando a la entidad, buscando en
-  // RUES/Google, etc.) — no viene de ningún scraper. Ver PATCH /:id/contacto.
+  // Sitio web del proveedor — dataset público "SECOP II - Contacto Entidades y Proveedores"
+  // (4ex9-j3n8), lo trae el Scout automáticamente (sin login, ver CLAUDE.md).
+  sitioWeb              String?
+  // Contacto directo del proveedor. correoContacto lo sugiere el Scout desde el mismo dataset
+  // público (correo_electronico / correo_representante_legal) solo al crear el registro o
+  // mientras esté vacío — nunca pisa un valor que el equipo comercial ya guardó a mano.
+  // telefonoContacto y direccionContacto no tienen fuente pública gratuita (RUES no los
+  // expone) y son 100% manuales. Ver PATCH /:id/contacto.
   direccionContacto     String?
   telefonoContacto      String?
   correoContacto        String?

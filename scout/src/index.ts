@@ -1,5 +1,5 @@
-import { buscarAdjudicados, buscarCelebrados } from "./client.js";
-import type { Contrato, PerfilLeads, ProcesoAdjudicado } from "./types.js";
+import { buscarAdjudicados, buscarCelebrados, buscarContactosProveedores } from "./client.js";
+import type { ContactoProveedor, Contrato, PerfilLeads, ProcesoAdjudicado } from "./types.js";
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL ?? "http://localhost:4100";
 
@@ -10,11 +10,17 @@ const perfil: PerfilLeads = {
   diasHaciaAtras: 3,
 };
 
-// Datos Abiertos usa placeholders como "No Definido" / "No definido" / "Sin Descripcion" en
-// vez de dejar el campo vacío — verificado en vivo (2026-08-24) contra procesos y contratos
-// reales recientes. Sin este filtro, esos textos terminarían guardados como si fueran datos
-// reales (o, peor, usados para armar un link de RUES con NIT "No Definido").
-const PLACEHOLDERS_VACIOS = new Set(["no definido", "sin descripcion", "sin descripción", "no aplica"]);
+// Datos Abiertos usa placeholders como "No Definido" / "No definido" / "Sin Descripcion" / "No
+// Provisto" en vez de dejar el campo vacío — verificado en vivo (2026-08-24/25) contra
+// procesos, contratos y contactos reales. Sin este filtro, esos textos terminarían guardados
+// como si fueran datos reales (o, peor, usados para armar un link de RUES con NIT "No Definido").
+const PLACEHOLDERS_VACIOS = new Set([
+  "no definido",
+  "sin descripcion",
+  "sin descripción",
+  "no aplica",
+  "no provisto",
+]);
 
 function limpio(valor: string | undefined): string | undefined {
   if (!valor) return undefined;
@@ -27,19 +33,30 @@ function soloDigitos(nit: string | undefined): string | undefined {
 }
 
 // La búsqueda de RUES no acepta el NIT por query param (verificado en vivo, 2026-08-24) — el
-// link siempre apunta a la página de búsqueda avanzada, y el humano escribe el NIT ahí. RUES
-// público tampoco expone teléfono/correo en ningún resultado (solo lo vende en su certificado
-// de pago), así que este link es solo para confirmar el NIT/estado de la matrícula — el
-// teléfono/correo del prospecto se gestiona manualmente desde el dashboard (ver
-// ProcesoDetail.tsx, sección "Contacto").
+// link siempre apunta a la página de búsqueda avanzada (el dashboard copia el NIT al
+// portapapeles al abrirlo). RUES público tampoco expone teléfono/correo en ningún resultado
+// (solo lo vende en su certificado de pago) — por eso el correo/sitio web viene de un dataset
+// distinto (ver buscarContactosProveedores más abajo), y el teléfono queda como el único dato
+// que el equipo comercial sigue completando a mano.
 const URL_BUSQUEDA_RUES = "https://www.rues.org.co/busqueda-avanzada";
 
 function urlRues(nit: string | undefined): string | undefined {
   return soloDigitos(nit) ? URL_BUSQUEDA_RUES : undefined;
 }
 
-function normalizarAdjudicado(p: ProcesoAdjudicado) {
+// Prioriza el correo corporativo sobre el del representante legal; ambos vienen del dataset
+// público "SECOP II - Contacto Entidades y Proveedores" (ver client.ts) — sin login, sin captcha.
+function mejorCorreo(contacto: ContactoProveedor | undefined): string | undefined {
+  return limpio(contacto?.correo_electronico) ?? limpio(contacto?.correo_representante_legal);
+}
+
+function sitioWeb(contacto: ContactoProveedor | undefined): string | undefined {
+  return limpio(contacto?.website);
+}
+
+function normalizarAdjudicado(p: ProcesoAdjudicado, contactos: Map<string, ContactoProveedor>) {
   const proveedorNit = limpio(p.nit_del_proveedor_adjudicado);
+  const contacto = proveedorNit ? contactos.get(proveedorNit) : undefined;
   return {
     idProceso: p.id_del_proceso,
     entidad: p.entidad ?? "Desconocida",
@@ -58,11 +75,14 @@ function normalizarAdjudicado(p: ProcesoAdjudicado) {
     proveedorCiudad: limpio(p.ciudad_proveedor),
     urlProceso: p.urlproceso?.url,
     urlRues: urlRues(proveedorNit),
+    correoContacto: mejorCorreo(contacto),
+    sitioWeb: sitioWeb(contacto),
   };
 }
 
-function normalizarCelebrado(c: Contrato) {
+function normalizarCelebrado(c: Contrato, contactos: Map<string, ContactoProveedor>) {
   const proveedorNit = limpio(c.documento_proveedor);
+  const contacto = proveedorNit ? contactos.get(proveedorNit) : undefined;
   return {
     // proceso_de_compra liga este contrato con el mismo proceso que puede haber llegado antes
     // como "adjudicado" desde el otro dataset — si falta, se usa el id del contrato.
@@ -82,6 +102,8 @@ function normalizarCelebrado(c: Contrato) {
     representanteLegalDireccion: limpio(c.domicilio_representante_legal),
     urlProceso: c.urlproceso?.url,
     urlRues: urlRues(proveedorNit),
+    correoContacto: mejorCorreo(contacto),
+    sitioWeb: sitioWeb(contacto),
   };
 }
 
@@ -98,6 +120,13 @@ const adjudicados = await buscarAdjudicados(perfil);
 const celebrados = await buscarCelebrados(perfil);
 console.log(`Adjudicados encontrados: ${adjudicados.length} · Celebrados encontrados: ${celebrados.length}`);
 
+const nits = [
+  ...adjudicados.map((p) => limpio(p.nit_del_proveedor_adjudicado)),
+  ...celebrados.map((c) => limpio(c.documento_proveedor)),
+].filter((nit): nit is string => Boolean(nit));
+const contactos = await buscarContactosProveedores(nits);
+console.log(`Contactos públicos encontrados: ${contactos.size} de ${new Set(nits).size} NIT únicos`);
+
 let enviados = 0;
 let fallidos = 0;
 
@@ -105,13 +134,13 @@ let fallidos = 0;
 // lotes, el backend nunca deja que "celebrado" retroceda a "adjudicado" (ver
 // procesos.service.ts), así que el orden solo importa para que el log sea legible.
 for (const p of adjudicados) {
-  const ok = await enviarAlDashboard(normalizarAdjudicado(p));
+  const ok = await enviarAlDashboard(normalizarAdjudicado(p, contactos));
   ok ? enviados++ : fallidos++;
   console.log(`  ${ok ? "✓" : "✗"} [adjudicado] [${p.id_del_proceso}] ${p.nombre_del_procedimiento?.slice(0, 60)}`);
 }
 
 for (const c of celebrados) {
-  const ok = await enviarAlDashboard(normalizarCelebrado(c));
+  const ok = await enviarAlDashboard(normalizarCelebrado(c, contactos));
   ok ? enviados++ : fallidos++;
   console.log(`  ${ok ? "✓" : "✗"} [celebrado] [${c.id_contrato}] ${c.objeto_del_contrato?.slice(0, 60)}`);
 }

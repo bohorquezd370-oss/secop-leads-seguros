@@ -130,12 +130,23 @@ export function ProcesoDetail({ id, onCerrar }: ProcesoDetailProps) {
                 <Campo label="Representante legal" value={proceso.representanteLegalNombre} />
                 <Campo label="Domicilio rep. legal" value={proceso.representanteLegalDireccion} />
               </div>
+              {proceso.sitioWeb && (
+                <a
+                  href={proceso.sitioWeb.startsWith("http") ? proceso.sitioWeb : `https://${proceso.sitioWeb}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-2 inline-block text-xs font-medium text-indigo-500 hover:text-indigo-700"
+                >
+                  {proceso.sitioWeb} →
+                </a>
+              )}
 
               <div className="mt-4 border-t border-slate-200 pt-4">
                 <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Contacto</p>
                 <p className="mb-2 text-xs text-slate-400">
-                  RUES público no publica teléfono/correo — regístralo aquí cuando lo consigas (llamando a
-                  la entidad, buscando la empresa, etc.).
+                  El correo, cuando existe públicamente, lo sugiere el Scout automáticamente — puedes
+                  corregirlo. El teléfono no tiene fuente pública gratuita (RUES no lo expone):
+                  regístralo aquí cuando lo consigas (llamando a la entidad, buscando la empresa, etc.).
                 </p>
                 {proceso.urlRues && (
                   <button

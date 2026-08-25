@@ -1,7 +1,16 @@
-import { ProcesoAdjudicadoSchema, ContratoSchema, type ProcesoAdjudicado, type Contrato, type PerfilLeads } from "./types.js";
+import {
+  ProcesoAdjudicadoSchema,
+  ContratoSchema,
+  ContactoProveedorSchema,
+  type ProcesoAdjudicado,
+  type Contrato,
+  type ContactoProveedor,
+  type PerfilLeads,
+} from "./types.js";
 
 const DATASET_PROCESOS = "p6dx-8zbt";
 const DATASET_CONTRATOS = "jbjy-vk9h";
+const DATASET_CONTACTOS = "4ex9-j3n8";
 const BASE_URL = "https://www.datos.gov.co/resource";
 
 // Estados de estado_contrato que NO representan un contrato ya celebrado/firmado —
@@ -81,4 +90,38 @@ export async function buscarCelebrados(perfil: PerfilLeads, opciones: BuscarOpci
   if (!res.ok) throw new Error(`Datos Abiertos (contratos) respondió ${res.status}: ${await res.text()}`);
 
   return ContratoSchema.array().parse(await res.json());
+}
+
+const TAMANO_LOTE_CONTACTOS = 50;
+
+// Correo/sitio web público del proveedor por NIT — dataset "SECOP II - Contacto Entidades y
+// Proveedores" (4ex9-j3n8), sin login ni captcha (verificado en vivo 2026-08-25, ver
+// CLAUDE.md). Se consulta en lotes (IN (...)) para no hacer una petición por proveedor.
+export async function buscarContactosProveedores(
+  nits: string[],
+  opciones: BuscarOpciones = {}
+): Promise<Map<string, ContactoProveedor>> {
+  const headers: Record<string, string> = {};
+  if (opciones.appToken) headers["X-App-Token"] = opciones.appToken;
+
+  const mapa = new Map<string, ContactoProveedor>();
+  const nitsUnicos = [...new Set(nits)];
+
+  for (let i = 0; i < nitsUnicos.length; i += TAMANO_LOTE_CONTACTOS) {
+    const lote = nitsUnicos.slice(i, i + TAMANO_LOTE_CONTACTOS);
+    const listaNits = lote.map((nit) => `'${escaparLiteral(nit)}'`).join(",");
+    const params = new URLSearchParams({
+      $where: `nit_entidad IN (${listaNits})`,
+      $limit: String(lote.length),
+    });
+
+    const res = await fetch(`${BASE_URL}/${DATASET_CONTACTOS}.json?${params.toString()}`, { headers });
+    if (!res.ok) throw new Error(`Datos Abiertos (contactos) respondió ${res.status}: ${await res.text()}`);
+
+    for (const c of ContactoProveedorSchema.array().parse(await res.json())) {
+      mapa.set(c.nit_entidad, c);
+    }
+  }
+
+  return mapa;
 }

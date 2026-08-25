@@ -26,6 +26,7 @@ export interface Proceso {
   representanteLegalDireccion: string | null;
   urlProceso: string | null;
   urlRues: string | null;
+  sitioWeb: string | null;
   direccionContacto: string | null;
   telefonoContacto: string | null;
   correoContacto: string | null;

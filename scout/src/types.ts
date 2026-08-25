@@ -52,6 +52,19 @@ export const ContratoSchema = z.object({
 
 export type Contrato = z.infer<typeof ContratoSchema>;
 
+// Campos del dataset público "SECOP II - Contacto Entidades y Proveedores" (4ex9-j3n8 en
+// datos.gov.co) — SIN login, sin captcha, es la fuente pública real de correo/sitio web del
+// proveedor (verificado en vivo 2026-08-25: 1.1M+ registros con correo_electronico real,
+// 1.6M+ con correo_representante_legal). Los campos vacíos vienen como literal "No Provisto".
+export const ContactoProveedorSchema = z.object({
+  nit_entidad: z.string(),
+  correo_electronico: z.string().optional(),
+  correo_representante_legal: z.string().optional(),
+  website: z.string().optional(),
+});
+
+export type ContactoProveedor = z.infer<typeof ContactoProveedorSchema>;
+
 // Perfil de búsqueda: general (sin filtro de objeto/palabra clave), solo mínima cuantía y una
 // ventana de días recientes — decisión del usuario (ver CLAUDE.md).
 export interface PerfilLeads {

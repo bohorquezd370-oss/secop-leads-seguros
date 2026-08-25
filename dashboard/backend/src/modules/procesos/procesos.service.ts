@@ -55,6 +55,14 @@ export async function crearProceso(datos: CrearProcesoInput) {
     datos = { ...datos, estadoSecop: existente.estadoSecop as CrearProcesoInput["estadoSecop"] };
   }
 
+  // correoContacto es una SUGERENCIA del Scout (dataset público de contacto) — solo se aplica
+  // si el proceso es nuevo o el campo sigue vacío. Si el equipo comercial ya lo completó o
+  // corrigió a mano, el Scout nunca lo pisa en corridas siguientes. telefonoContacto y
+  // direccionContacto son 100% manuales — el Scout jamás los envía.
+  if (existente?.correoContacto) {
+    datos = { ...datos, correoContacto: existente.correoContacto };
+  }
+
   // estadoComercial y notasComerciales son dominio exclusivo del humano — el Scout nunca los toca.
   return prisma.proceso.upsert({
     where: { idProceso: datos.idProceso },

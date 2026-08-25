@@ -2,10 +2,10 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// "sqlite" para desarrollo local (no hay Postgres local) — cambiar a "postgresql" solo antes
-// de desplegar en Railway, igual que en secop-agentes (ver docs/despliegue-dashboard.md).
+// "postgresql" para producción (Railway, ver docs/despliegue-dashboard.md). En desarrollo
+// local sin Postgres, cambiar temporalmente a "sqlite" con DATABASE_URL="file:./dev.db".
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 

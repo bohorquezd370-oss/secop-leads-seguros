@@ -1,5 +1,6 @@
 import type { Proceso } from "../../../types/proceso";
 import { COLOR_ESTADO_COMERCIAL, COLOR_ESTADO_SECOP, ETIQUETAS_ESTADO_COMERCIAL, ETIQUETAS_ESTADO_SECOP } from "../../../types/proceso";
+import { abrirBusquedaRues } from "../../../lib/rues";
 
 function formatearMoneda(valor: number | null) {
   if (valor === null) return "—";
@@ -67,15 +68,16 @@ export function ProcesosTable({ procesos, onSeleccionar }: ProcesosTableProps) {
                     {proceso.direccionContacto && <p className="truncate text-slate-400">{proceso.direccionContacto}</p>}
                   </div>
                 ) : proceso.urlRues ? (
-                  <a
-                    href={proceso.urlRues}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(e) => e.stopPropagation()}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      abrirBusquedaRues(proceso.urlRues!, proceso.proveedorNit);
+                    }}
+                    title="Copia el NIT y abre RUES — solo falta pegarlo y buscar"
                     className="text-xs font-medium text-indigo-500 hover:text-indigo-700"
                   >
-                    Buscar en RUES →
-                  </a>
+                    Copiar NIT y buscar en RUES →
+                  </button>
                 ) : (
                   <span className="text-xs text-slate-300">—</span>
                 )}

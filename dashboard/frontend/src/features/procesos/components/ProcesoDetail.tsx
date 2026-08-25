@@ -7,6 +7,7 @@ import {
   ETIQUETAS_ESTADO_COMERCIAL,
   ETIQUETAS_ESTADO_SECOP,
 } from "../../../types/proceso";
+import { abrirBusquedaRues } from "../../../lib/rues";
 
 function fmt(valor: number | null) {
   if (valor === null) return "—";
@@ -137,14 +138,13 @@ export function ProcesoDetail({ id, onCerrar }: ProcesoDetailProps) {
                   la entidad, buscando la empresa, etc.).
                 </p>
                 {proceso.urlRues && (
-                  <a
-                    href={proceso.urlRues}
-                    target="_blank"
-                    rel="noreferrer"
+                  <button
+                    onClick={() => abrirBusquedaRues(proceso.urlRues!, proceso.proveedorNit)}
+                    title="Copia el NIT y abre RUES — solo falta pegarlo y buscar"
                     className="mb-3 inline-block text-xs font-medium text-indigo-500 hover:text-indigo-700"
                   >
-                    Confirmar NIT/estado en RUES →
-                  </a>
+                    Copiar NIT y confirmar en RUES →
+                  </button>
                 )}
                 <div className="space-y-2">
                   <input

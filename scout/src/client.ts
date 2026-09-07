@@ -46,12 +46,13 @@ export async function buscarAdjudicados(
     "adjudicado = 'Si'",
     condicionModalidad(perfil.modalidades),
     `fecha_adjudicacion >= '${desde}'`,
+    `valor_total_adjudicacion >= ${perfil.valorMinimo}`,
   ].join(" AND ");
 
   const params = new URLSearchParams({
     $where: where,
     $limit: String(opciones.limite ?? 200),
-    $order: "fecha_adjudicacion DESC",
+    $order: "valor_total_adjudicacion DESC",
   });
 
   const headers: Record<string, string> = {};
@@ -75,12 +76,13 @@ export async function buscarCelebrados(perfil: PerfilLeads, opciones: BuscarOpci
     condicionModalidad(perfil.modalidades),
     `fecha_de_firma >= '${desde}'`,
     condicionEstado,
+    `valor_del_contrato >= ${perfil.valorMinimo}`,
   ].join(" AND ");
 
   const params = new URLSearchParams({
     $where: where,
     $limit: String(opciones.limite ?? 200),
-    $order: "fecha_de_firma DESC",
+    $order: "valor_del_contrato DESC",
   });
 
   const headers: Record<string, string> = {};

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useProcesos } from "./features/procesos/hooks/useProcesos";
+import { useCupoDiario, useProcesos } from "./features/procesos/hooks/useProcesos";
 import { ProcesosTable } from "./features/procesos/components/ProcesosTable";
 import { ProcesoDetail } from "./features/procesos/components/ProcesoDetail";
 import { ESTADOS_COMERCIALES, ESTADOS_SECOP, ETIQUETAS_ESTADO_COMERCIAL, ETIQUETAS_ESTADO_SECOP } from "./types/proceso";
@@ -14,6 +14,7 @@ function App() {
   const [estadoSecop, setEstadoSecop] = useState<string>("");
   const [estadoComercial, setEstadoComercial] = useState<string>("");
   const { data: procesos = [], isLoading, error } = useProcesos({ estadoSecop, estadoComercial });
+  const { data: cupo } = useCupoDiario();
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
 
   const valorTotal = procesos.reduce((acc, p) => acc + (p.valor ?? 0), 0);
@@ -42,11 +43,18 @@ function App() {
 
       <main className="mx-auto max-w-7xl px-6 py-8 space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
           <StatCard icon="📋" title="Procesos" value={procesos.length.toString()} sub="en el tablero" />
           <StatCard icon="💰" title="Valor total" value={formatM(valorTotal)} sub="contratado" color="emerald" />
           <StatCard icon="📇" title="Con contacto" value={conContacto.toString()} sub="teléfono/correo registrado" />
           <StatCard icon="🆕" title="Sin gestionar" value={nuevos.toString()} sub="estado nuevo" color={nuevos > 0 ? "amber" : "default"} />
+          <StatCard
+            icon="📅"
+            title="Nuevos hoy"
+            value={cupo ? `${cupo.creadosHoy}/${cupo.cupoMaximo}` : "—"}
+            sub={cupo ? `${cupo.cupoDisponible} cupos disponibles` : "cargando..."}
+            color={cupo && cupo.cupoDisponible === 0 ? "amber" : "default"}
+          />
         </div>
 
         {/* Filtros */}

@@ -3,12 +3,18 @@ import type { ContactoProveedor, Contrato, PerfilLeads, ProcesoAdjudicado } from
 
 const DASHBOARD_URL = process.env.DASHBOARD_URL ?? "http://localhost:4100";
 
-// Perfil confirmado por el usuario (2026-08-24): general (sin filtro de objeto/palabra clave),
-// solo mínima cuantía, últimos 3 días — ver CLAUDE.md.
+// Perfil confirmado por el usuario: general (sin filtro de objeto/palabra clave), solo mínima
+// cuantía, últimos 3 días, valor mínimo $20.000.000 (2026-08-26: procesos más pequeños no
+// justifican el trabajo de captación al detalle) — ver CLAUDE.md.
 const perfil: PerfilLeads = {
   modalidades: ["Mínima cuantía"],
   diasHaciaAtras: 3,
+  valorMinimo: 20_000_000,
 };
+
+// Tope de leads NUEVOS por día (2026-08-26, pedido del usuario: 80/día para poder trabajar
+// cada uno al detalle) — lo hace cumplir el backend (ver crearProceso en
+// procesos.service.ts), nunca bloquea actualizar un proceso que ya existía.
 
 // Datos Abiertos usa placeholders como "No Definido" / "No definido" / "Sin Descripcion" / "No
 // Provisto" en vez de dejar el campo vacío — verificado en vivo (2026-08-24/25) contra
@@ -107,13 +113,24 @@ function normalizarCelebrado(c: Contrato, contactos: Map<string, ContactoProveed
   };
 }
 
-async function enviarAlDashboard(datos: Record<string, unknown>): Promise<boolean> {
+// Cuando el mismo idProceso sale en ambos datasets, se completan campos que falten en uno con
+// los del otro (ej. representanteLegalNombre solo viene del dataset de contratos) en vez de
+// simplemente descartar uno de los dos registros.
+function fusionar(base: Record<string, unknown>, extra: Record<string, unknown>): Record<string, unknown> {
+  const resultado: Record<string, unknown> = { ...base };
+  for (const [clave, valor] of Object.entries(extra)) {
+    if (valor !== undefined) resultado[clave] = valor;
+  }
+  return resultado;
+}
+
+async function enviarAlDashboard(datos: Record<string, unknown>): Promise<number> {
   const res = await fetch(`${DASHBOARD_URL}/api/procesos`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(datos),
   });
-  return res.ok;
+  return res.status;
 }
 
 const adjudicados = await buscarAdjudicados(perfil);
@@ -127,22 +144,42 @@ const nits = [
 const contactos = await buscarContactosProveedores(nits);
 console.log(`Contactos públicos encontrados: ${contactos.size} de ${new Set(nits).size} NIT únicos`);
 
+const candidatos = new Map<string, Record<string, unknown>>();
+for (const p of adjudicados) {
+  const norm = normalizarAdjudicado(p, contactos);
+  candidatos.set(norm.idProceso, norm);
+}
+for (const c of celebrados) {
+  const norm = normalizarCelebrado(c, contactos);
+  const existente = candidatos.get(norm.idProceso);
+  candidatos.set(norm.idProceso, existente ? fusionar(existente, norm) : norm);
+}
+
+// De mayor a menor valor: cuando hay más candidatos que cupo diario disponible, entran
+// primero los procesos más grandes (mejor prospecto de póliza).
+const listaCandidatos = [...candidatos.values()].sort(
+  (a, b) => ((b.valor as number | undefined) ?? 0) - ((a.valor as number | undefined) ?? 0)
+);
+
 let enviados = 0;
+let sinCupo = 0;
 let fallidos = 0;
 
-// Los adjudicados se envían antes que los celebrados: si un mismo proceso está en ambos
-// lotes, el backend nunca deja que "celebrado" retroceda a "adjudicado" (ver
-// procesos.service.ts), así que el orden solo importa para que el log sea legible.
-for (const p of adjudicados) {
-  const ok = await enviarAlDashboard(normalizarAdjudicado(p, contactos));
-  ok ? enviados++ : fallidos++;
-  console.log(`  ${ok ? "✓" : "✗"} [adjudicado] [${p.id_del_proceso}] ${p.nombre_del_procedimiento?.slice(0, 60)}`);
+for (const lead of listaCandidatos) {
+  const status = await enviarAlDashboard(lead);
+  const etiqueta = `[${lead.estadoSecop}] [${lead.idProceso}] ${String(lead.objeto).slice(0, 55)}`;
+  if (status >= 200 && status < 300) {
+    enviados++;
+    console.log(`  ✓ ${etiqueta}`);
+  } else if (status === 409) {
+    // El backend rechaza únicamente procesos NUEVOS cuando ya se alcanzó el cupo diario de
+    // leads — actualizar uno que ya existía nunca cuenta contra el cupo (ver crearProceso).
+    sinCupo++;
+    console.log(`  · ${etiqueta} — sin cupo diario`);
+  } else {
+    fallidos++;
+    console.log(`  ✗ ${etiqueta} — error ${status}`);
+  }
 }
 
-for (const c of celebrados) {
-  const ok = await enviarAlDashboard(normalizarCelebrado(c, contactos));
-  ok ? enviados++ : fallidos++;
-  console.log(`  ${ok ? "✓" : "✗"} [celebrado] [${c.id_contrato}] ${c.objeto_del_contrato?.slice(0, 60)}`);
-}
-
-console.log(`\nResumen: ${enviados} enviados/actualizados, ${fallidos} fallidos.`);
+console.log(`\nResumen: ${enviados} enviados/actualizados, ${sinCupo} sin cupo diario (80/día), ${fallidos} fallidos.`);

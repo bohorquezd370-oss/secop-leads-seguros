@@ -46,8 +46,37 @@ export function obtenerProceso(id: string) {
 // haber visto ya el contrato firmado en el dataset de Contratos Electrónicos.
 const RANGO_ESTADO: Record<string, number> = { adjudicado: 1, celebrado: 2 };
 
+// Tope de leads NUEVOS por día (2026-08-26, pedido del usuario: 80/día para poder trabajar
+// cada uno al detalle) — solo cuenta contra esto un idProceso que no existía todavía;
+// actualizar uno ya creado (ej. de adjudicado a celebrado, o refrescar el correo sugerido)
+// nunca consume cupo. Se reinicia a medianoche hora de Bogotá.
+const CUPO_DIARIO_LEADS = Number(process.env.CUPO_DIARIO_LEADS ?? 80);
+
+function inicioDiaBogota(): Date {
+  // "en-CA" da YYYY-MM-DD; se interpreta como medianoche UTC, que basta para delimitar el día
+  // igual que ya se hace en otras fechas del scout (ver scout/src/client.ts, fechaBogota) —
+  // Bogotá no tiene horario de verano, UTC-5 todo el año, por lo que 00:00 UTC de "hoy" cae
+  // dentro del mismo día de Bogotá para el rango de horas en que corre este cron.
+  const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
+  return new Date(`${hoy}T05:00:00.000Z`); // 00:00 Bogotá = 05:00 UTC
+}
+
+export async function obtenerCupoDiario() {
+  const creadosHoy = await prisma.proceso.count({ where: { createdAt: { gte: inicioDiaBogota() } } });
+  return {
+    creadosHoy,
+    cupoMaximo: CUPO_DIARIO_LEADS,
+    cupoDisponible: Math.max(0, CUPO_DIARIO_LEADS - creadosHoy),
+  };
+}
+
 export async function crearProceso(datos: CrearProcesoInput) {
   const existente = await prisma.proceso.findUnique({ where: { idProceso: datos.idProceso } });
+
+  if (!existente) {
+    const { cupoDisponible } = await obtenerCupoDiario();
+    if (cupoDisponible <= 0) return null;
+  }
 
   if (existente && RANGO_ESTADO[datos.estadoSecop] < RANGO_ESTADO[existente.estadoSecop]) {
     // No pisar un estado más avanzado con uno más viejo — sí se permite completar campos

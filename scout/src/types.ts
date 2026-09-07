@@ -65,9 +65,10 @@ export const ContactoProveedorSchema = z.object({
 
 export type ContactoProveedor = z.infer<typeof ContactoProveedorSchema>;
 
-// Perfil de búsqueda: general (sin filtro de objeto/palabra clave), solo mínima cuantía y una
-// ventana de días recientes — decisión del usuario (ver CLAUDE.md).
+// Perfil de búsqueda: general (sin filtro de objeto/palabra clave), solo mínima cuantía, una
+// ventana de días recientes, y un valor mínimo — decisión del usuario (ver CLAUDE.md).
 export interface PerfilLeads {
   modalidades: string[];
   diasHaciaAtras: number;
+  valorMinimo: number;
 }

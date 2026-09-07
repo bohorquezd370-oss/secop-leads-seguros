@@ -55,3 +55,13 @@ export function actualizarContacto(id: string, datos: DatosContacto): Promise<Pr
     body: JSON.stringify(datos),
   }).then(manejarRespuesta<Proceso>);
 }
+
+export interface CupoDiario {
+  creadosHoy: number;
+  cupoMaximo: number;
+  cupoDisponible: number;
+}
+
+export function obtenerCupoDiario(): Promise<CupoDiario> {
+  return fetch(`${API_URL}/api/procesos/cupo-diario`).then(manejarRespuesta<CupoDiario>);
+}

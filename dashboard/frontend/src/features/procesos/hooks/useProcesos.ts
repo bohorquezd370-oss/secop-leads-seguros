@@ -45,3 +45,7 @@ export function useActualizarContacto() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: PROCESOS_KEY }),
   });
 }
+
+export function useCupoDiario() {
+  return useQuery({ queryKey: ["cupo-diario"], queryFn: procesosApi.obtenerCupoDiario });
+}

@@ -116,21 +116,35 @@ hay múltiples razones sociales cotizando.
 
 ---
 
-## 5. Perfil real del Scout (confirmado 2026-08-24)
+## 5. Perfil real del Scout (confirmado 2026-08-24, ajustado 2026-08-26)
 
 - **Modalidad:** solo "Mínima cuantía".
 - **Ventana:** últimos 3 días (`fecha_adjudicacion` o `fecha_de_firma` según el dataset).
 - **Sin filtro de objeto/palabra clave** — a diferencia de `secop-agentes` (que busca solo
   interventorías), aquí se quiere ver *todo tipo* de proceso adjudicado/celebrado: obra,
   prestación de servicios, consultoría, suministro, compraventa, etc.
-- **Sin valor mínimo.**
+- **Valor mínimo $20.000.000** (`valorMinimo` en `PerfilLeads`, 2026-08-26) — procesos más
+  pequeños no justifican el trabajo de captación al detalle. Se filtra directamente en la
+  consulta SoQL (`valor_total_adjudicacion` / `valor_del_contrato >= 20000000`, verificado que
+  la comparación numérica funciona correctamente y no es lexicográfica).
+- **Tope de 80 leads NUEVOS por día** (2026-08-26, pedido del usuario: permitir trabajar cada
+  lead al detalle en vez de recibir un volumen inmanejable). Lo hace cumplir el **backend**, no
+  el Scout — ver `CUPO_DIARIO_LEADS`/`obtenerCupoDiario` en `procesos.service.ts`: un
+  `idProceso` que no existía todavía cuenta contra el cupo; actualizar uno que ya existía (ej.
+  pasar de adjudicado a celebrado, o refrescar el correo sugerido) nunca lo consume. El cupo se
+  reinicia a medianoche hora de Bogotá. El Scout ordena todos los candidatos de mayor a menor
+  `valor` antes de enviarlos, así que cuando hay más candidatos que cupo, entran primero los
+  procesos más grandes — probado en vivo con `CUPO_DIARIO_LEADS=5`: los primeros 5 (todos entre
+  $170M-$175M) entraron, el resto quedó como "sin cupo diario" sin error. Endpoint
+  `GET /api/procesos/cupo-diario` expone `{ creadosHoy, cupoMaximo, cupoDisponible }`, usado
+  también por el stat "Nuevos hoy" del dashboard.
 - **Sin auto-descarte por fecha de cierre** — a diferencia de `secop-agentes`, aquí el contrato ya
   se firmó, el lead sigue siendo válido indefinidamente. El descarte es una decisión comercial
   manual vía `estadoComercial = "descartado"`.
 
-Verificado con datos reales el 2026-08-24: 346 procesos únicos en un solo corrida (167
-adjudicados + 179 celebrados, con varios duplicados entre ambos datasets correctamente
-deduplicados por `idProceso`).
+Verificado con datos reales el 2026-08-24 (antes del filtro de valor/tope diario): 346 procesos
+únicos en una sola corrida (167 adjudicados + 179 celebrados, con varios duplicados entre ambos
+datasets correctamente deduplicados por `idProceso`).
 
 ---
 

@@ -12,3 +12,4 @@ procesosRouter.post("/", procesosController.crear);
 procesosRouter.patch("/:id/estado-comercial", procesosController.actualizarEstadoComercial);
 procesosRouter.patch("/:id/notas", procesosController.actualizarNotas);
 procesosRouter.patch("/:id/contacto", procesosController.actualizarContacto);
+procesosRouter.delete("/:id", procesosController.eliminar);

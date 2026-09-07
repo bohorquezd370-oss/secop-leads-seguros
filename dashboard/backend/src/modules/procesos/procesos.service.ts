@@ -100,6 +100,10 @@ export async function crearProceso(datos: CrearProcesoInput) {
   });
 }
 
+export function eliminarProceso(id: string) {
+  return prisma.proceso.delete({ where: { id } });
+}
+
 export function actualizarEstadoComercial(id: string, datos: ActualizarEstadoComercialInput) {
   return prisma.proceso.update({ where: { id }, data: datos });
 }

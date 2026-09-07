@@ -80,3 +80,12 @@ export async function actualizarContacto(req: Request, res: Response, next: Next
     next(err);
   }
 }
+
+export async function eliminar(req: Request, res: Response, next: NextFunction) {
+  try {
+    await procesosService.eliminarProceso(req.params.id);
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+}

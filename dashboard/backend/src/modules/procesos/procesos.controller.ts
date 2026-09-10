@@ -89,6 +89,14 @@ export async function depurar(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export async function enviarMarketing(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await procesosService.enviarMarketing());
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function eliminar(req: Request, res: Response, next: NextFunction) {
   try {
     await procesosService.eliminarProceso(req.params.id);

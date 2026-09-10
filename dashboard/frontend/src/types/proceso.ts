@@ -31,6 +31,8 @@ export interface Proceso {
   telefonoContacto: string | null;
   correoContacto: string | null;
   contactoActualizadoEn: string | null;
+  correoMarketingEnviadoEn: string | null;
+  correoMarketingRecordatorioEn: string | null;
   estadoComercial: EstadoComercial;
   notasComerciales: string | null;
   createdAt: string;

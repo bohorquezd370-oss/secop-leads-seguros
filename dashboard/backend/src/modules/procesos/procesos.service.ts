@@ -6,6 +6,8 @@ import type {
   ActualizarNotasSchema,
   CrearProcesoSchema,
 } from "./procesos.schema.js";
+import { enviarCorreo } from "../../config/email.js";
+import { construirCorreoInicial, construirCorreoRecordatorio } from "./procesos.marketing.js";
 
 type CrearProcesoInput = z.infer<typeof CrearProcesoSchema>;
 type ActualizarEstadoComercialInput = z.infer<typeof ActualizarEstadoComercialSchema>;
@@ -123,6 +125,53 @@ export async function depurarSinSeguimiento() {
     },
   });
   return { eliminados: count, diasSinSeguimiento: DIAS_SIN_SEGUIMIENTO };
+}
+
+// Horas de espera antes del recordatorio — ver docs/estrategia-email-marketing.md (una sola
+// campaña corta, no una secuencia larga, porque la ventana real de venta son pocos días).
+const HORAS_RECORDATORIO_MARKETING = Number(process.env.HORAS_RECORDATORIO_MARKETING ?? 30);
+
+// Se llama desde el Scout en cada corrida (ver scout/src/index.ts), después de insertar los
+// procesos nuevos. Solo dispara para "adjudicado" — "celebrado" casi siempre ya consiguió
+// póliza con alguien más (ver comentario al inicio de CLAUDE.md sobre pólizas de cumplimiento).
+export async function enviarMarketing() {
+  let inicialesEnviados = 0;
+  let recordatoriosEnviados = 0;
+  let simulados = 0;
+
+  const pendientesInicial = await prisma.proceso.findMany({
+    where: { estadoSecop: "adjudicado", correoContacto: { not: null }, correoMarketingEnviadoEn: null },
+  });
+  for (const proceso of pendientesInicial) {
+    const { asunto, cuerpo } = construirCorreoInicial(proceso);
+    const { simulado } = await enviarCorreo(proceso.correoContacto!, asunto, cuerpo);
+    await prisma.proceso.update({ where: { id: proceso.id }, data: { correoMarketingEnviadoEn: new Date() } });
+    inicialesEnviados++;
+    if (simulado) simulados++;
+  }
+
+  // Recordatorio: ya pasaron HORAS_RECORDATORIO_MARKETING desde el correo inicial, no se ha
+  // mandado recordatorio todavía, y el proceso sigue en "nuevo" — si el equipo comercial ya
+  // cambió el estado, alguien ya lo está gestionando y no hace falta insistir por correo.
+  const limite = new Date(Date.now() - HORAS_RECORDATORIO_MARKETING * 60 * 60 * 1000);
+  const pendientesRecordatorio = await prisma.proceso.findMany({
+    where: {
+      estadoSecop: "adjudicado",
+      correoContacto: { not: null },
+      correoMarketingEnviadoEn: { lt: limite },
+      correoMarketingRecordatorioEn: null,
+      estadoComercial: "nuevo",
+    },
+  });
+  for (const proceso of pendientesRecordatorio) {
+    const { asunto, cuerpo } = construirCorreoRecordatorio(proceso);
+    const { simulado } = await enviarCorreo(proceso.correoContacto!, asunto, cuerpo);
+    await prisma.proceso.update({ where: { id: proceso.id }, data: { correoMarketingRecordatorioEn: new Date() } });
+    recordatoriosEnviados++;
+    if (simulado) simulados++;
+  }
+
+  return { inicialesEnviados, recordatoriosEnviados, simulados };
 }
 
 export function actualizarEstadoComercial(id: string, datos: ActualizarEstadoComercialInput) {

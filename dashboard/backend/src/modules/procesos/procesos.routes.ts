@@ -10,6 +10,7 @@ procesosRouter.get("/", procesosController.listar);
 procesosRouter.get("/:id", procesosController.obtener);
 procesosRouter.post("/", procesosController.crear);
 procesosRouter.post("/depurar", procesosController.depurar);
+procesosRouter.post("/marketing/enviar", procesosController.enviarMarketing);
 procesosRouter.patch("/:id/estado-comercial", procesosController.actualizarEstadoComercial);
 procesosRouter.patch("/:id/notas", procesosController.actualizarNotas);
 procesosRouter.patch("/:id/contacto", procesosController.actualizarContacto);

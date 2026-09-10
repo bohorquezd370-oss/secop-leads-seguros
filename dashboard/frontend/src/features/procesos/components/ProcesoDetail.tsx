@@ -154,6 +154,26 @@ export function ProcesoDetail({ id, onCerrar }: ProcesoDetailProps) {
                 </a>
               )}
 
+              {proceso.correoContacto && proceso.estadoSecop === "adjudicado" && (
+                <div className="mt-4 border-t border-slate-200 pt-4">
+                  <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">
+                    Marketing por correo
+                  </p>
+                  {proceso.correoMarketingEnviadoEn ? (
+                    <p className="text-xs text-slate-600">
+                      ✓ Correo inicial enviado el {fmtFecha(proceso.correoMarketingEnviadoEn)}
+                      {proceso.correoMarketingRecordatorioEn && (
+                        <> · recordatorio el {fmtFecha(proceso.correoMarketingRecordatorioEn)}</>
+                      )}
+                    </p>
+                  ) : (
+                    <p className="text-xs text-slate-400">
+                      Aún no enviado — el Scout lo manda automáticamente en la próxima corrida.
+                    </p>
+                  )}
+                </div>
+              )}
+
               <div className="mt-4 border-t border-slate-200 pt-4">
                 <p className="mb-1 text-xs font-medium uppercase tracking-wide text-slate-400">Contacto</p>
                 <p className="mb-2 text-xs text-slate-400">

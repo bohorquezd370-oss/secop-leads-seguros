@@ -203,3 +203,18 @@ for (const lead of listaCandidatos) {
 }
 
 console.log(`\nResumen: ${enviados} enviados/actualizados, ${sinCupo} sin cupo diario (80/día), ${fallidos} fallidos.`);
+
+// Marketing por correo — solo dispara para "adjudicado" con correo público, nunca "celebrado"
+// (ver CLAUDE.md sobre pólizas de cumplimiento). Se llama al final para que los adjudicados
+// nuevos de esta misma corrida ya estén guardados con su correoContacto antes de evaluarlos.
+const resMarketing = await fetch(`${DASHBOARD_URL}/api/procesos/marketing/enviar`, { method: "POST" });
+if (!resMarketing.ok) throw new Error(`No se pudo enviar marketing: ${resMarketing.status}`);
+const marketing = (await resMarketing.json()) as {
+  inicialesEnviados: number;
+  recordatoriosEnviados: number;
+  simulados: number;
+};
+console.log(
+  `Marketing: ${marketing.inicialesEnviados} correos iniciales, ${marketing.recordatoriosEnviados} recordatorios` +
+    (marketing.simulados > 0 ? ` (${marketing.simulados} simulados — falta configurar SMTP para envío real).` : ".")
+);

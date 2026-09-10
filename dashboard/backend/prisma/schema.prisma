@@ -62,6 +62,10 @@ model Proceso {
   contactoActualizadoEn DateTime?
   estadoComercial       String    @default("nuevo")
   notasComerciales      String?
+  // Marketing por correo (2026-09-10): solo se dispara para "adjudicado" con correoContacto —
+  // ver docs/estrategia-email-marketing.md y config/email.ts. Null = todavía no enviado.
+  correoMarketingEnviadoEn       DateTime?
+  correoMarketingRecordatorioEn  DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 }

@@ -3,6 +3,7 @@ import { useCupoDiario, useProcesos } from "./features/procesos/hooks/useProceso
 import { ProcesosTable } from "./features/procesos/components/ProcesosTable";
 import { ProcesoDetail } from "./features/procesos/components/ProcesoDetail";
 import { ESTADOS_COMERCIALES, ESTADOS_SECOP, ETIQUETAS_ESTADO_COMERCIAL, ETIQUETAS_ESTADO_SECOP } from "./types/proceso";
+import { nivelUrgencia } from "./lib/urgencia";
 
 function formatM(valor: number) {
   if (valor >= 1_000_000) return `$${(valor / 1_000_000).toFixed(1)}M`;
@@ -20,6 +21,10 @@ function App() {
   const valorTotal = procesos.reduce((acc, p) => acc + (p.valor ?? 0), 0);
   const conContacto = procesos.filter((p) => p.telefonoContacto || p.correoContacto || p.direccionContacto).length;
   const nuevos = procesos.filter((p) => p.estadoComercial === "nuevo").length;
+  const urgentes = procesos.filter((p) => {
+    const n = nivelUrgencia(p);
+    return n === "critico" || n === "atencion";
+  }).length;
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans">
@@ -36,16 +41,23 @@ function App() {
           </div>
           <div className="flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs text-slate-400">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Scout cada 3 horas
+            Scout cada 12 horas
           </div>
         </div>
       </header>
 
       <main className="mx-auto max-w-7xl px-6 py-8 space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
           <StatCard icon="📋" title="Procesos" value={procesos.length.toString()} sub="en el tablero" />
           <StatCard icon="💰" title="Valor total" value={formatM(valorTotal)} sub="contratado" color="emerald" />
+          <StatCard
+            icon="🔥"
+            title="Urgentes"
+            value={urgentes.toString()}
+            sub="adjudicados, contactar ya"
+            color={urgentes > 0 ? "amber" : "default"}
+          />
           <StatCard icon="📇" title="Con contacto" value={conContacto.toString()} sub="teléfono/correo registrado" />
           <StatCard icon="🆕" title="Sin gestionar" value={nuevos.toString()} sub="estado nuevo" color={nuevos > 0 ? "amber" : "default"} />
           <StatCard

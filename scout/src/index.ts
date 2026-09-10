@@ -166,11 +166,20 @@ for (const c of celebrados) {
   candidatos.set(norm.idProceso, existente ? fusionar(existente, norm) : norm);
 }
 
-// De mayor a menor valor: cuando hay más candidatos que cupo diario disponible, entran
-// primero los procesos más grandes (mejor prospecto de póliza).
-const listaCandidatos = [...candidatos.values()].sort(
-  (a, b) => ((b.valor as number | undefined) ?? 0) - ((a.valor as number | undefined) ?? 0)
-);
+// Prioridad: "adjudicado" antes que "celebrado" — pedido del usuario (2026-09-10). En
+// mínima cuantía la garantía/póliza de cumplimiento normalmente se aporta ANTES de firmar el
+// contrato, así que cuando un proceso ya aparece "celebrado" es muy probable que el
+// adjudicatario ya haya conseguido su póliza con alguien más. La ventana real de venta es
+// "adjudicado" (recién ganó, todavía no tiene póliza) — por eso llena el cupo diario primero,
+// sin importar el valor, antes de dejar entrar cualquier "celebrado". Dentro de cada grupo,
+// de mayor a menor valor.
+const RANGO_PRIORIDAD: Record<string, number> = { adjudicado: 0, celebrado: 1 };
+const listaCandidatos = [...candidatos.values()].sort((a, b) => {
+  const prioridadA = RANGO_PRIORIDAD[a.estadoSecop as string] ?? 1;
+  const prioridadB = RANGO_PRIORIDAD[b.estadoSecop as string] ?? 1;
+  if (prioridadA !== prioridadB) return prioridadA - prioridadB;
+  return ((b.valor as number | undefined) ?? 0) - ((a.valor as number | undefined) ?? 0);
+});
 
 let enviados = 0;
 let sinCupo = 0;

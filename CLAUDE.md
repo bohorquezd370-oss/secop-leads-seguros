@@ -9,6 +9,14 @@ Proyecto hermano de `secop-agentes` (ayuda a una empresa a *participar* en SECOP
 propósito distinto: generar leads comerciales, no presentar ofertas. Solo interviene el agente
 **Scout** — sin descarga de documentos, sin análisis financiero, sin radicación.
 
+**Producto real: pólizas de cumplimiento (2026-09-10).** El usuario vende específicamente
+pólizas de cumplimiento para procesos de mínima cuantía. Esto importa para el diseño porque en
+mínima cuantía la garantía/póliza normalmente se aporta **antes** de firmar el contrato — así
+que "adjudicado" (recién ganó, todavía sin póliza) es la ventana real de venta, y "celebrado"
+casi siempre significa que el adjudicatario ya consiguió su póliza con alguien más. Todo el
+sistema (orden del Scout, prioridad del cupo diario, la tabla del dashboard) trata "adjudicado"
+como urgente y "celebrado" como baja prioridad — ver sección 5 y `lib/urgencia.ts`.
+
 ---
 
 ## 1. Arquitectura de agentes
@@ -132,10 +140,12 @@ hay múltiples razones sociales cotizando.
   el Scout — ver `CUPO_DIARIO_LEADS`/`obtenerCupoDiario` en `procesos.service.ts`: un
   `idProceso` que no existía todavía cuenta contra el cupo; actualizar uno que ya existía (ej.
   pasar de adjudicado a celebrado, o refrescar el correo sugerido) nunca lo consume. El cupo se
-  reinicia a medianoche hora de Bogotá. El Scout ordena todos los candidatos de mayor a menor
-  `valor` antes de enviarlos, así que cuando hay más candidatos que cupo, entran primero los
-  procesos más grandes — probado en vivo con `CUPO_DIARIO_LEADS=5`: los primeros 5 (todos entre
-  $170M-$175M) entraron, el resto quedó como "sin cupo diario" sin error. Endpoint
+  reinicia a medianoche hora de Bogotá. **Orden de prioridad del Scout (actualizado
+  2026-09-10):** primero todos los "adjudicado" (de mayor a menor valor), después los
+  "celebrado" — nunca al revés, sin importar el valor (ver el comentario sobre pólizas de
+  cumplimiento al inicio de este archivo). Antes de este cambio se ordenaba solo por valor;
+  probado en vivo con `CUPO_DIARIO_LEADS=5`: los primeros 5 (todos entre $170M-$175M) entraron,
+  el resto quedó como "sin cupo diario" sin error. Endpoint
   `GET /api/procesos/cupo-diario` expone `{ creadosHoy, cupoMaximo, cupoDisponible }`, usado
   también por el stat "Nuevos hoy" del dashboard.
 - **Auto-descarte por falta de seguimiento** (2026-09-09, reemplaza el punto anterior sobre
@@ -187,6 +197,13 @@ datasets correctamente deduplicados por `idProceso`).
     directo con `$where=fecha_adjudicacion >= 'HOY'`, que devuelve vacío hasta que SECOP
     publica (normalmente 1+ día de rezago). No es una falla del Scout ni de la rutina.
 - [x] Auto-descarte por falta de seguimiento a los 3 días — ver sección 5.
+- [x] Priorización por urgencia (2026-09-10) — `dashboard/frontend/src/lib/urgencia.ts` calcula
+      días restantes estimados (`fechaAdjudicacion + 3 días`, ver comentario al inicio de este
+      archivo sobre pólizas de cumplimiento) y clasifica cada proceso en
+      crítico/atención/normal/vencido/baja-prioridad. La tabla del dashboard ordena por esto
+      (adjudicados urgentes arriba, celebrados al final), y el Scout aplica la misma prioridad
+      al repartir el cupo diario (`RANGO_PRIORIDAD` en `scout/src/index.ts`). El estimado de 3
+      días es general — el plazo real depende del pliego de cada proceso, no está en los datos.
 - [x] Desplegado a Railway — https://secop-leads-seguros-production.up.railway.app (backend +
       frontend en un solo servicio, Postgres administrado). Sin login todavía — decisión
       explícita del usuario (2026-08-24), igual que en `secop-agentes`.

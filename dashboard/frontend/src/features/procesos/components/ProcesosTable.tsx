@@ -1,6 +1,7 @@
 import type { Proceso } from "../../../types/proceso";
 import { COLOR_ESTADO_COMERCIAL, COLOR_ESTADO_SECOP, ETIQUETAS_ESTADO_COMERCIAL, ETIQUETAS_ESTADO_SECOP } from "../../../types/proceso";
 import { abrirBusquedaRues } from "../../../lib/rues";
+import { COLOR_URGENCIA, ETIQUETA_URGENCIA, compararPorUrgencia, diasRestantesSuscripcion, nivelUrgencia } from "../../../lib/urgencia";
 
 function formatearMoneda(valor: number | null) {
   if (valor === null) return "—";
@@ -18,11 +19,17 @@ interface ProcesosTableProps {
 }
 
 export function ProcesosTable({ procesos, onSeleccionar }: ProcesosTableProps) {
+  // Los adjudicados más urgentes (menos días estimados antes de que deban aportar la póliza)
+  // van arriba; los celebrados (baja prioridad — probablemente ya consiguieron póliza con
+  // alguien más) quedan al final. Ver lib/urgencia.ts.
+  const ordenados = [...procesos].sort(compararPorUrgencia);
+
   return (
     <div className="overflow-x-auto">
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-slate-100 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-400">
+            <th className="px-6 py-3">Urgencia</th>
             <th className="px-6 py-3">Estado SECOP</th>
             <th className="px-6 py-3">Entidad contratante</th>
             <th className="px-6 py-3">Objeto</th>
@@ -35,12 +42,21 @@ export function ProcesosTable({ procesos, onSeleccionar }: ProcesosTableProps) {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {procesos.map((proceso) => (
+          {ordenados.map((proceso) => {
+            const urgencia = nivelUrgencia(proceso);
+            const dias = diasRestantesSuscripcion(proceso);
+            return (
             <tr
               key={proceso.id}
               onClick={() => onSeleccionar(proceso.id)}
-              className="cursor-pointer transition-colors hover:bg-slate-50"
+              className={`cursor-pointer transition-colors hover:bg-slate-50 ${urgencia === "critico" ? "bg-red-50/40" : ""}`}
             >
+              <td className="px-6 py-4">
+                <span className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${COLOR_URGENCIA[urgencia]}`}>
+                  {ETIQUETA_URGENCIA[urgencia]}
+                  {dias !== null && dias >= 0 && ` (${dias}d)`}
+                </span>
+              </td>
               <td className="px-6 py-4">
                 <span
                   className={`whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${COLOR_ESTADO_SECOP[proceso.estadoSecop]}`}
@@ -106,13 +122,14 @@ export function ProcesosTable({ procesos, onSeleccionar }: ProcesosTableProps) {
                 ) : null}
               </td>
             </tr>
-          ))}
+            );
+          })}
           {procesos.length === 0 && (
             <tr>
-              <td colSpan={9} className="py-16 text-center text-slate-400">
+              <td colSpan={10} className="py-16 text-center text-slate-400">
                 <div className="text-3xl mb-2">🔍</div>
                 <p className="text-sm font-medium">No hay procesos todavía</p>
-                <p className="text-xs mt-1">El Agente Scout los irá agregando aquí cada 3 horas</p>
+                <p className="text-xs mt-1">El Agente Scout los irá agregando aquí cada 12 horas</p>
               </td>
             </tr>
           )}

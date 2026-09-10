@@ -8,6 +8,7 @@ import {
   ETIQUETAS_ESTADO_SECOP,
 } from "../../../types/proceso";
 import { abrirBusquedaRues } from "../../../lib/rues";
+import { COLOR_URGENCIA, ETIQUETA_URGENCIA, diasRestantesSuscripcion, nivelUrgencia } from "../../../lib/urgencia";
 
 function fmt(valor: number | null) {
   if (valor === null) return "—";
@@ -73,11 +74,23 @@ export function ProcesoDetail({ id, onCerrar }: ProcesoDetailProps) {
                 <p className="text-xs font-mono text-slate-400">{proceso.idProceso}</p>
                 <h2 className="mt-0.5 text-base font-bold text-slate-900 leading-snug">{proceso.entidad}</h2>
                 <p className="mt-1 text-sm text-slate-500 line-clamp-2">{proceso.objeto}</p>
-                <span
-                  className={`mt-2 inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${COLOR_ESTADO_SECOP[proceso.estadoSecop]}`}
-                >
-                  {ETIQUETAS_ESTADO_SECOP[proceso.estadoSecop]}
-                </span>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <span
+                    className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${COLOR_ESTADO_SECOP[proceso.estadoSecop]}`}
+                  >
+                    {ETIQUETAS_ESTADO_SECOP[proceso.estadoSecop]}
+                  </span>
+                  {(() => {
+                    const urgencia = nivelUrgencia(proceso);
+                    const dias = diasRestantesSuscripcion(proceso);
+                    return (
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium ${COLOR_URGENCIA[urgencia]}`}>
+                        {ETIQUETA_URGENCIA[urgencia]}
+                        {dias !== null && dias >= 0 && ` (${dias}d)`}
+                      </span>
+                    );
+                  })()}
+                </div>
               </div>
               <button
                 onClick={onCerrar}

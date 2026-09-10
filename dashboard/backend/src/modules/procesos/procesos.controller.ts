@@ -81,6 +81,14 @@ export async function actualizarContacto(req: Request, res: Response, next: Next
   }
 }
 
+export async function depurar(req: Request, res: Response, next: NextFunction) {
+  try {
+    res.json(await procesosService.depurarSinSeguimiento());
+  } catch (err) {
+    next(err);
+  }
+}
+
 export async function eliminar(req: Request, res: Response, next: NextFunction) {
   try {
     await procesosService.eliminarProceso(req.params.id);

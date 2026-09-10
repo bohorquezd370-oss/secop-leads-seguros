@@ -138,9 +138,14 @@ hay múltiples razones sociales cotizando.
   $170M-$175M) entraron, el resto quedó como "sin cupo diario" sin error. Endpoint
   `GET /api/procesos/cupo-diario` expone `{ creadosHoy, cupoMaximo, cupoDisponible }`, usado
   también por el stat "Nuevos hoy" del dashboard.
-- **Sin auto-descarte por fecha de cierre** — a diferencia de `secop-agentes`, aquí el contrato ya
-  se firmó, el lead sigue siendo válido indefinidamente. El descarte es una decisión comercial
-  manual vía `estadoComercial = "descartado"`.
+- **Auto-descarte por falta de seguimiento** (2026-09-09, reemplaza el punto anterior sobre
+  "sin auto-descarte"): el Scout llama primero a `POST /api/procesos/depurar`
+  (`depurarSinSeguimiento` en `procesos.service.ts`), que borra los procesos con
+  `estadoComercial = "nuevo"` **y** sin notas **y** sin contacto guardado a mano, creados hace
+  más de `DIAS_SIN_SEGUIMIENTO` días (default 3, env var). Un correo que el Scout sugirió
+  automáticamente NO cuenta como seguimiento — solo una acción humana (cambiar el estado,
+  escribir una nota, o guardar contacto) evita el descarte. Probado en vivo: un proceso sin
+  tocar se elimina, uno con `estadoComercial` cambiado sobrevive.
 
 Verificado con datos reales el 2026-08-24 (antes del filtro de valor/tope diario): 346 procesos
 únicos en una sola corrida (167 adjudicados + 179 celebrados, con varios duplicados entre ambos
@@ -163,9 +168,25 @@ datasets correctamente deduplicados por `idProceso`).
       siendo manuales.
 - [x] Repo en GitHub — https://github.com/bohorquezd370-oss/secop-leads-seguros (público, por
       decisión del usuario para simplificar el acceso de la rutina en la nube).
-- [x] Cron cada 3 horas — rutina en la nube (skill `/schedule`) creada, cron `40 */3 * * *`
-      UTC. El scout no depende de navegador (a diferencia de `sesion-asistida/` en el proyecto
-      original), así que corre completamente en la nube sin intervención humana.
+- [x] Cron cada 12 horas — rutina en la nube (skill `/schedule`, trigger
+      `trig_01EtMuzmmjvSfWx1Z85MjrdK`) creada con `40 */3 * * *` (2026-08-25), cambiada a
+      `40 */12 * * *` UTC (2026-09-09, pedido del usuario). El scout no depende de navegador (a
+      diferencia de `sesion-asistida/` en el proyecto original), así que corre completamente en
+      la nube sin intervención humana.
+  - **Incidente resuelto (2026-09-04 a 2026-09-08):** el entorno de la nube ("Default") tenía
+    una política de red que bloqueaba `www.datos.gov.co` (`403 Host not in allowlist`) — todas
+    las corridas de esos días fallaron en el primer request, sin llegar nunca a tocar el
+    dashboard. Se diagnosticó revisando `list_runs`/`get_run_log` de la rutina (el fallo
+    aparecía como texto plano en el resultado del Bash, no como error de la rutina en sí). El
+    usuario agregó `www.datos.gov.co` y el dominio de Railway al allowlist del entorno en
+    claude.ai (Settings → Code → Environments); se corrió un backfill manual con
+    `diasHaciaAtras: 7` (temporal, revertido) para recuperar 80 leads del hueco antes de
+    retomar la ventana normal de 3 días.
+  - **Rezago normal de publicación de SECOP** (confirmado 2026-09-09): Datos Abiertos no
+    publica `fecha_adjudicacion`/`fecha_de_firma` del mismo día — verificado consultando la API
+    directo con `$where=fecha_adjudicacion >= 'HOY'`, que devuelve vacío hasta que SECOP
+    publica (normalmente 1+ día de rezago). No es una falla del Scout ni de la rutina.
+- [x] Auto-descarte por falta de seguimiento a los 3 días — ver sección 5.
 - [x] Desplegado a Railway — https://secop-leads-seguros-production.up.railway.app (backend +
       frontend en un solo servicio, Postgres administrado). Sin login todavía — decisión
       explícita del usuario (2026-08-24), igual que en `secop-agentes`.

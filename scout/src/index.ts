@@ -133,6 +133,17 @@ async function enviarAlDashboard(datos: Record<string, unknown>): Promise<number
   return res.status;
 }
 
+// Depurar primero: borra del dashboard los leads que llevan 3 días sin ningún tipo de
+// seguimiento comercial (pedido del usuario, 2026-09-09) — que el tablero no se llene de
+// procesos abandonados. Nunca toca uno con estado comercial distinto de "nuevo", con notas, o
+// con contacto guardado a mano.
+const resDepurar = await fetch(`${DASHBOARD_URL}/api/procesos/depurar`, { method: "POST" });
+if (!resDepurar.ok) throw new Error(`No se pudo depurar el dashboard: ${resDepurar.status}`);
+const depuracion = (await resDepurar.json()) as { eliminados: number; diasSinSeguimiento: number };
+console.log(
+  `Depuración: ${depuracion.eliminados} procesos eliminados por ${depuracion.diasSinSeguimiento} días sin seguimiento.`
+);
+
 const adjudicados = await buscarAdjudicados(perfil);
 const celebrados = await buscarCelebrados(perfil);
 console.log(`Adjudicados encontrados: ${adjudicados.length} · Celebrados encontrados: ${celebrados.length}`);

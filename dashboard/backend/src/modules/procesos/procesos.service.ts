@@ -104,6 +104,27 @@ export function eliminarProceso(id: string) {
   return prisma.proceso.delete({ where: { id } });
 }
 
+// Días sin ningún tipo de seguimiento comercial antes de descartar un lead automáticamente —
+// pedido del usuario (2026-09-09): que el tablero no se llene de procesos abandonados.
+const DIAS_SIN_SEGUIMIENTO = Number(process.env.DIAS_SIN_SEGUIMIENTO ?? 3);
+
+// "Sin seguimiento" = nunca se tocó el estado comercial (sigue en "nuevo"), nunca se escribió
+// una nota, y nunca se guardó contacto a mano — sin importar si el Scout le sugirió un correo
+// automáticamente, eso no cuenta como gestión humana. Se llama desde el Scout en cada corrida
+// (ver scout/src/index.ts), igual que el patrón de depuración de secop-agentes.
+export async function depurarSinSeguimiento() {
+  const limite = new Date(Date.now() - DIAS_SIN_SEGUIMIENTO * 24 * 60 * 60 * 1000);
+  const { count } = await prisma.proceso.deleteMany({
+    where: {
+      estadoComercial: "nuevo",
+      notasComerciales: null,
+      contactoActualizadoEn: null,
+      createdAt: { lt: limite },
+    },
+  });
+  return { eliminados: count, diasSinSeguimiento: DIAS_SIN_SEGUIMIENTO };
+}
+
 export function actualizarEstadoComercial(id: string, datos: ActualizarEstadoComercialInput) {
   return prisma.proceso.update({ where: { id }, data: datos });
 }

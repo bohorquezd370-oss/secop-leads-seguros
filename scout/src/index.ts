@@ -38,6 +38,22 @@ function soloDigitos(nit: string | undefined): string | undefined {
   return limpiado?.replace(/[^0-9]/g, "") || undefined;
 }
 
+// Techo de plausibilidad para "Mínima cuantía" — verificado en vivo (2026-10-28):
+// CO1.REQ.11106057 (Municipio de Risaralda) reportó valor_total_adjudicacion = $503.591
+// billones cuando el precio_base real era de solo $23.9M — error de digitación de la entidad
+// al publicar en SECOP, no un problema nuestro. Mínima cuantía nunca llega ni cerca de este
+// monto, así que cualquier valor por encima se descarta y se usa el respaldo (precio_base)
+// si existe y es razonable; si no, queda sin valor en vez de contaminar la suma del dashboard.
+const VALOR_MAXIMO_PLAUSIBLE = 10_000_000_000; // $10.000 millones
+
+function valorPlausible(valor: number | undefined, respaldo?: number): number | undefined {
+  if (valor === undefined) return respaldo !== undefined && respaldo <= VALOR_MAXIMO_PLAUSIBLE ? respaldo : undefined;
+  if (valor > VALOR_MAXIMO_PLAUSIBLE) {
+    return respaldo !== undefined && respaldo <= VALOR_MAXIMO_PLAUSIBLE ? respaldo : undefined;
+  }
+  return valor;
+}
+
 // La búsqueda de RUES no acepta el NIT por query param (verificado en vivo, 2026-08-24) — el
 // link siempre apunta a la página de búsqueda avanzada (el dashboard copia el NIT al
 // portapapeles al abrirlo). RUES público tampoco expone teléfono/correo en ningún resultado
@@ -73,7 +89,10 @@ function normalizarAdjudicado(p: ProcesoAdjudicado, contactos: Map<string, Conta
     modalidad: limpio(p.modalidad_de_contratacion),
     tipoContrato: limpio(p.tipo_de_contrato),
     estadoSecop: "adjudicado" as const,
-    valor: p.valor_total_adjudicacion ? parseFloat(p.valor_total_adjudicacion) : p.precio_base ? parseFloat(p.precio_base) : undefined,
+    valor: valorPlausible(
+      p.valor_total_adjudicacion ? parseFloat(p.valor_total_adjudicacion) : undefined,
+      p.precio_base ? parseFloat(p.precio_base) : undefined
+    ),
     fechaAdjudicacion: p.fecha_adjudicacion,
     proveedorNombre: limpio(p.nombre_del_proveedor),
     proveedorNit,
@@ -100,7 +119,7 @@ function normalizarCelebrado(c: Contrato, contactos: Map<string, ContactoProveed
     modalidad: limpio(c.modalidad_de_contratacion),
     tipoContrato: limpio(c.tipo_de_contrato),
     estadoSecop: "celebrado" as const,
-    valor: c.valor_del_contrato ? parseFloat(c.valor_del_contrato) : undefined,
+    valor: valorPlausible(c.valor_del_contrato ? parseFloat(c.valor_del_contrato) : undefined),
     fechaFirma: c.fecha_de_firma,
     proveedorNombre: limpio(c.proveedor_adjudicado),
     proveedorNit,

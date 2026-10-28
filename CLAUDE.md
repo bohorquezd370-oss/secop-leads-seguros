@@ -135,6 +135,16 @@ hay múltiples razones sociales cotizando.
   pequeños no justifican el trabajo de captación al detalle. Se filtra directamente en la
   consulta SoQL (`valor_total_adjudicacion` / `valor_del_contrato >= 20000000`, verificado que
   la comparación numérica funciona correctamente y no es lexicográfica).
+- **Techo de plausibilidad $10.000.000.000** (`VALOR_MAXIMO_PLAUSIBLE`/`valorPlausible` en
+  `scout/src/index.ts`, 2026-10-28) — **error de datos real encontrado y corregido en vivo**:
+  SECOP publicó `CO1.REQ.11106057` (Municipio de Risaralda, "COMPRAVENTA DE MEDIDORES") con
+  `valor_total_adjudicacion = 503.591.805.337.600` (503 billones) cuando el `precio_base` real
+  era de solo $23.9M — un error de digitación de la entidad al publicar, no un bug nuestro, pero
+  ese solo registro representaba el 99.98% de la suma de "Valor total" del dashboard. Mínima
+  cuantía nunca llega ni cerca de $10.000 millones, así que cualquier `valor` por encima de ese
+  techo se descarta y se reemplaza por `precio_base` (si existe y es plausible) o queda sin
+  valor — nunca se deja un número implausible contaminar la suma. Aplica a ambos datasets
+  (adjudicados y celebrados).
 - **Tope de 80 leads NUEVOS por día — SOLO para "celebrado"** (creado 2026-08-26, **restringido
   a "celebrado" el 2026-10-27** a pedido del usuario: "adjudicado" ya no tiene ningún límite,
   entran TODOS los que se adjudiquen cada día). Tiene sentido con la estrategia de pólizas de

@@ -5,7 +5,11 @@ import { ProcesoDetail } from "./features/procesos/components/ProcesoDetail";
 import { ESTADOS_COMERCIALES, ESTADOS_SECOP, ETIQUETAS_ESTADO_COMERCIAL, ETIQUETAS_ESTADO_SECOP } from "./types/proceso";
 import { nivelUrgencia } from "./lib/urgencia";
 
+// Con el cupo diario quitado para "adjudicado" (2026-10-27), el tablero puede acumular miles
+// de procesos — la suma total ya puede llegar a cientos de miles de millones de pesos, así que
+// hace falta un escalón más arriba de "M" para que no se vea como "$300000.0M".
 function formatM(valor: number) {
+  if (valor >= 1_000_000_000) return `$${(valor / 1_000_000_000).toFixed(1)}MM`;
   if (valor >= 1_000_000) return `$${(valor / 1_000_000).toFixed(1)}M`;
   if (valor >= 1_000) return `$${(valor / 1_000).toFixed(0)}K`;
   return `$${valor}`;

@@ -63,8 +63,12 @@ function App() {
           <StatCard
             icon="📅"
             title="Nuevos hoy"
-            value={cupo ? `${cupo.creadosHoy}/${cupo.cupoMaximo}` : "—"}
-            sub={cupo ? `${cupo.cupoDisponible} cupos disponibles` : "cargando..."}
+            value={cupo ? cupo.creadosHoy.toString() : "—"}
+            sub={
+              cupo
+                ? `adjudicados sin límite · ${cupo.cupoDisponible}/${cupo.cupoMaximo} cupos para celebrados`
+                : "cargando..."
+            }
             color={cupo && cupo.cupoDisponible === 0 ? "amber" : "default"}
           />
         </div>

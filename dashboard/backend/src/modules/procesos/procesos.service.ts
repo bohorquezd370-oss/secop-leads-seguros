@@ -48,10 +48,14 @@ export function obtenerProceso(id: string) {
 // haber visto ya el contrato firmado en el dataset de Contratos Electrónicos.
 const RANGO_ESTADO: Record<string, number> = { adjudicado: 1, celebrado: 2 };
 
-// Tope de leads NUEVOS por día (2026-08-26, pedido del usuario: 80/día para poder trabajar
-// cada uno al detalle) — solo cuenta contra esto un idProceso que no existía todavía;
-// actualizar uno ya creado (ej. de adjudicado a celebrado, o refrescar el correo sugerido)
-// nunca consume cupo. Se reinicia a medianoche hora de Bogotá.
+// Tope de leads NUEVOS por día — SOLO aplica a "celebrado" (2026-10-27, pedido del usuario:
+// "adjudicado" ya no tiene ningún límite, entran TODOS los que se adjudiquen cada día). Tiene
+// sentido con la estrategia de pólizas de cumplimiento: "adjudicado" es la ventana real de
+// venta (ver CLAUDE.md), así que nunca se descarta un candidato ahí solo por volumen;
+// "celebrado" sigue siendo de baja prioridad y mantiene el cupo para no inflar el tablero con
+// procesos que probablemente ya consiguieron póliza con alguien más. Solo cuenta contra esto
+// un idProceso que no existía todavía; actualizar uno ya creado nunca consume cupo. Se reinicia
+// a medianoche hora de Bogotá.
 const CUPO_DIARIO_LEADS = Number(process.env.CUPO_DIARIO_LEADS ?? 80);
 
 function inicioDiaBogota(): Date {
@@ -64,18 +68,26 @@ function inicioDiaBogota(): Date {
 }
 
 export async function obtenerCupoDiario() {
-  const creadosHoy = await prisma.proceso.count({ where: { createdAt: { gte: inicioDiaBogota() } } });
+  const inicio = inicioDiaBogota();
+  // creadosHoy: total del día (adjudicados + celebrados), solo informativo para el stat del
+  // dashboard. cupoDisponible: se calcula SOLO sobre "celebrado" — es lo único que el cupo
+  // sigue limitando (ver comentario de CUPO_DIARIO_LEADS arriba).
+  const [creadosHoy, celebradosHoy] = await Promise.all([
+    prisma.proceso.count({ where: { createdAt: { gte: inicio } } }),
+    prisma.proceso.count({ where: { createdAt: { gte: inicio }, estadoSecop: "celebrado" } }),
+  ]);
   return {
     creadosHoy,
     cupoMaximo: CUPO_DIARIO_LEADS,
-    cupoDisponible: Math.max(0, CUPO_DIARIO_LEADS - creadosHoy),
+    cupoDisponible: Math.max(0, CUPO_DIARIO_LEADS - celebradosHoy),
   };
 }
 
 export async function crearProceso(datos: CrearProcesoInput) {
   const existente = await prisma.proceso.findUnique({ where: { idProceso: datos.idProceso } });
 
-  if (!existente) {
+  // El cupo diario ya NO aplica a "adjudicado" — solo a "celebrado" (ver CUPO_DIARIO_LEADS).
+  if (!existente && datos.estadoSecop === "celebrado") {
     const { cupoDisponible } = await obtenerCupoDiario();
     if (cupoDisponible <= 0) return null;
   }

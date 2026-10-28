@@ -12,9 +12,9 @@ const perfil: PerfilLeads = {
   valorMinimo: 20_000_000,
 };
 
-// Tope de leads NUEVOS por día (2026-08-26, pedido del usuario: 80/día para poder trabajar
-// cada uno al detalle) — lo hace cumplir el backend (ver crearProceso en
-// procesos.service.ts), nunca bloquea actualizar un proceso que ya existía.
+// Tope de leads NUEVOS por día — SOLO aplica a "celebrado" (2026-10-27: "adjudicado" ya no
+// tiene límite, ver procesos.service.ts). Lo hace cumplir el backend, nunca bloquea actualizar
+// un proceso que ya existía.
 
 // Datos Abiertos usa placeholders como "No Definido" / "No definido" / "Sin Descripcion" / "No
 // Provisto" en vez de dejar el campo vacío — verificado en vivo (2026-08-24/25) contra
@@ -170,9 +170,9 @@ for (const c of celebrados) {
 // mínima cuantía la garantía/póliza de cumplimiento normalmente se aporta ANTES de firmar el
 // contrato, así que cuando un proceso ya aparece "celebrado" es muy probable que el
 // adjudicatario ya haya conseguido su póliza con alguien más. La ventana real de venta es
-// "adjudicado" (recién ganó, todavía no tiene póliza) — por eso llena el cupo diario primero,
-// sin importar el valor, antes de dejar entrar cualquier "celebrado". Dentro de cada grupo,
-// de mayor a menor valor.
+// "adjudicado" (recién ganó, todavía no tiene póliza) — por eso siempre entra primero en el
+// log (y ya no compite por cupo diario en absoluto, ver más abajo). Dentro de cada grupo,
+// de mayor a menor valor — así, si el cupo de celebrados se agota, quedan fuera los más chicos.
 const RANGO_PRIORIDAD: Record<string, number> = { adjudicado: 0, celebrado: 1 };
 const listaCandidatos = [...candidatos.values()].sort((a, b) => {
   const prioridadA = RANGO_PRIORIDAD[a.estadoSecop as string] ?? 1;
@@ -192,17 +192,18 @@ for (const lead of listaCandidatos) {
     enviados++;
     console.log(`  ✓ ${etiqueta}`);
   } else if (status === 409) {
-    // El backend rechaza únicamente procesos NUEVOS cuando ya se alcanzó el cupo diario de
-    // leads — actualizar uno que ya existía nunca cuenta contra el cupo (ver crearProceso).
+    // El backend rechaza únicamente procesos NUEVOS de tipo "celebrado" cuando ya se alcanzó
+    // su cupo diario — "adjudicado" ya no tiene límite, y actualizar uno que ya existía nunca
+    // cuenta contra el cupo (ver crearProceso en procesos.service.ts).
     sinCupo++;
-    console.log(`  · ${etiqueta} — sin cupo diario`);
+    console.log(`  · ${etiqueta} — sin cupo diario (celebrado)`);
   } else {
     fallidos++;
     console.log(`  ✗ ${etiqueta} — error ${status}`);
   }
 }
 
-console.log(`\nResumen: ${enviados} enviados/actualizados, ${sinCupo} sin cupo diario (80/día), ${fallidos} fallidos.`);
+console.log(`\nResumen: ${enviados} enviados/actualizados, ${sinCupo} sin cupo diario (celebrados, 80/día), ${fallidos} fallidos.`);
 
 // Marketing por correo — solo dispara para "adjudicado" con correo público, nunca "celebrado"
 // (ver CLAUDE.md sobre pólizas de cumplimiento). Se llama al final para que los adjudicados

@@ -135,19 +135,27 @@ hay múltiples razones sociales cotizando.
   pequeños no justifican el trabajo de captación al detalle. Se filtra directamente en la
   consulta SoQL (`valor_total_adjudicacion` / `valor_del_contrato >= 20000000`, verificado que
   la comparación numérica funciona correctamente y no es lexicográfica).
-- **Tope de 80 leads NUEVOS por día** (2026-08-26, pedido del usuario: permitir trabajar cada
-  lead al detalle en vez de recibir un volumen inmanejable). Lo hace cumplir el **backend**, no
-  el Scout — ver `CUPO_DIARIO_LEADS`/`obtenerCupoDiario` en `procesos.service.ts`: un
-  `idProceso` que no existía todavía cuenta contra el cupo; actualizar uno que ya existía (ej.
-  pasar de adjudicado a celebrado, o refrescar el correo sugerido) nunca lo consume. El cupo se
-  reinicia a medianoche hora de Bogotá. **Orden de prioridad del Scout (actualizado
-  2026-09-10):** primero todos los "adjudicado" (de mayor a menor valor), después los
-  "celebrado" — nunca al revés, sin importar el valor (ver el comentario sobre pólizas de
-  cumplimiento al inicio de este archivo). Antes de este cambio se ordenaba solo por valor;
-  probado en vivo con `CUPO_DIARIO_LEADS=5`: los primeros 5 (todos entre $170M-$175M) entraron,
-  el resto quedó como "sin cupo diario" sin error. Endpoint
-  `GET /api/procesos/cupo-diario` expone `{ creadosHoy, cupoMaximo, cupoDisponible }`, usado
-  también por el stat "Nuevos hoy" del dashboard.
+- **Tope de 80 leads NUEVOS por día — SOLO para "celebrado"** (creado 2026-08-26, **restringido
+  a "celebrado" el 2026-10-27** a pedido del usuario: "adjudicado" ya no tiene ningún límite,
+  entran TODOS los que se adjudiquen cada día). Tiene sentido con la estrategia de pólizas de
+  cumplimiento (ver comentario al inicio de este archivo): "adjudicado" es la ventana real de
+  venta, nunca se descarta un candidato ahí solo por volumen; "celebrado" sigue siendo de baja
+  prioridad y mantiene el cupo para no inflar el tablero con procesos que probablemente ya
+  consiguieron póliza con alguien más. Lo hace cumplir el **backend**, no el Scout — ver
+  `CUPO_DIARIO_LEADS`/`obtenerCupoDiario`/`crearProceso` en `procesos.service.ts`: la función
+  `obtenerCupoDiario` calcula `cupoDisponible` contando solo los "celebrado" creados hoy, y
+  `crearProceso` solo invoca ese chequeo cuando `datos.estadoSecop === "celebrado"`. Un
+  `idProceso` que no existía todavía cuenta contra el cupo (si es celebrado); actualizar uno que
+  ya existía (ej. pasar de adjudicado a celebrado, o refrescar el correo sugerido) nunca lo
+  consume. El cupo se reinicia a medianoche hora de Bogotá. Probado en vivo
+  (`CUPO_DIARIO_LEADS=1`): el primer "celebrado" entra y agota el cupo, el segundo se rechaza
+  con 409, pero dos "adjudicado" seguidos entran sin problema con el cupo ya en 0.
+  **Orden de prioridad del Scout** (2026-09-10): primero todos los "adjudicado" (de mayor a
+  menor valor) en el log, después los "celebrado" — ver el comentario sobre pólizas de
+  cumplimiento al inicio de este archivo. Endpoint `GET /api/procesos/cupo-diario` expone
+  `{ creadosHoy, cupoMaximo, cupoDisponible }` (`creadosHoy` = total del día, informativo;
+  `cupoDisponible` = solo sobre celebrados), usado también por el stat "Nuevos hoy" del
+  dashboard.
 - **Auto-descarte por falta de seguimiento** (2026-09-09, reemplaza el punto anterior sobre
   "sin auto-descarte"): el Scout llama primero a `POST /api/procesos/depurar`
   (`depurarSinSeguimiento` en `procesos.service.ts`), que borra los procesos con

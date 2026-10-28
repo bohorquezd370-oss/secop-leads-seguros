@@ -1,7 +1,7 @@
 import type { Proceso } from "../../../types/proceso";
 import { COLOR_ESTADO_COMERCIAL, COLOR_ESTADO_SECOP, ETIQUETAS_ESTADO_COMERCIAL, ETIQUETAS_ESTADO_SECOP } from "../../../types/proceso";
 import { abrirBusquedaRues } from "../../../lib/rues";
-import { COLOR_URGENCIA, ETIQUETA_URGENCIA, compararPorUrgencia, diasRestantesSuscripcion, nivelUrgencia } from "../../../lib/urgencia";
+import { COLOR_URGENCIA, ETIQUETA_URGENCIA, diasRestantesSuscripcion, nivelUrgencia } from "../../../lib/urgencia";
 
 function formatearMoneda(valor: number | null) {
   if (valor === null) return "—";
@@ -19,10 +19,12 @@ interface ProcesosTableProps {
 }
 
 export function ProcesosTable({ procesos, onSeleccionar }: ProcesosTableProps) {
-  // Los adjudicados más urgentes (menos días estimados antes de que deban aportar la póliza)
-  // van arriba; los celebrados (baja prioridad — probablemente ya consiguieron póliza con
-  // alguien más) quedan al final. Ver lib/urgencia.ts.
-  const ordenados = [...procesos].sort(compararPorUrgencia);
+  // Más nuevos primero (pedido del usuario, 2026-10-27) — el backend ya entrega los procesos
+  // ordenados por createdAt desc (ver listarProcesos en procesos.service.ts); aquí solo se
+  // respeta ese orden en vez de reordenar por urgencia como antes. El badge de urgencia sigue
+  // visible por fila (ver lib/urgencia.ts) para no perder esa información, solo ya no decide
+  // el orden de la tabla.
+  const ordenados = procesos;
 
   return (
     <div className="overflow-x-auto">

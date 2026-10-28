@@ -12,12 +12,17 @@ async function manejarRespuesta<T>(res: Response): Promise<T> {
 export interface FiltrosProcesos {
   estadoSecop?: string;
   estadoComercial?: string;
+  // Filtran por fecha en que el proceso entró al tablero (createdAt) — formato YYYY-MM-DD.
+  desde?: string;
+  hasta?: string;
 }
 
 export function listarProcesos(filtros: FiltrosProcesos = {}): Promise<Proceso[]> {
   const params = new URLSearchParams();
   if (filtros.estadoSecop) params.set("estadoSecop", filtros.estadoSecop);
   if (filtros.estadoComercial) params.set("estadoComercial", filtros.estadoComercial);
+  if (filtros.desde) params.set("desde", filtros.desde);
+  if (filtros.hasta) params.set("hasta", filtros.hasta);
   const qs = params.toString();
   return fetch(`${API_URL}/api/procesos${qs ? `?${qs}` : ""}`).then(manejarRespuesta<Proceso[]>);
 }

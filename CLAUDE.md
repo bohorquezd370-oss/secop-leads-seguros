@@ -177,9 +177,15 @@ datasets correctamente deduplicados por `idProceso`).
 - [x] Dashboard backend (`dashboard/backend`) — Express + Prisma + SQLite (dev), modelo `Proceso`
       único, endpoints CRUD + estado comercial + notas + contacto manual. Probado end-to-end.
 - [x] Dashboard frontend (`dashboard/frontend`) — tabla con filtros (estado SECOP / estado
-      comercial), panel de detalle con datos de la empresa adjudicataria, formulario de contacto
-      manual, seguimiento comercial. Verificado visualmente en navegador (Playwright) contra
-      datos reales — sin errores de consola.
+      comercial / rango de fecha "Desde-Hasta", agregado 2026-10-27), panel de detalle con datos
+      de la empresa adjudicataria, formulario de contacto manual, seguimiento comercial.
+      Verificado visualmente en navegador (Playwright) contra datos reales — sin errores de
+      consola. **Orden por fecha (2026-10-27, reemplaza el orden por urgencia):** la tabla ya
+      no reordena por urgencia — respeta el orden del backend (`createdAt desc`), así que los
+      procesos más nuevos quedan siempre primero; el badge de urgencia se sigue mostrando por
+      fila, solo dejó de decidir el orden. El filtro "Hasta" cubre el día completo en hora
+      Bogotá (límite exclusivo del día siguiente a las 05:00 UTC), no corta a medianoche UTC —
+      mismo cuidado de zona horaria que `inicioDiaBogota()`.
 - [x] Investigación de RUES completa (sección 3) — decisión: sin scraper de RUES.
 - [x] Correo/sitio web público del proveedor (`4ex9-j3n8`) integrado al Scout — ~50% de
       cobertura real en pruebas (173/344 procesos con correo real). Teléfono/dirección siguen

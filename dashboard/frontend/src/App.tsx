@@ -14,7 +14,9 @@ function formatM(valor: number) {
 function App() {
   const [estadoSecop, setEstadoSecop] = useState<string>("");
   const [estadoComercial, setEstadoComercial] = useState<string>("");
-  const { data: procesos = [], isLoading, error } = useProcesos({ estadoSecop, estadoComercial });
+  const [desde, setDesde] = useState<string>("");
+  const [hasta, setHasta] = useState<string>("");
+  const { data: procesos = [], isLoading, error } = useProcesos({ estadoSecop, estadoComercial, desde, hasta });
   const { data: cupo } = useCupoDiario();
   const [seleccionado, setSeleccionado] = useState<string | null>(null);
 
@@ -99,6 +101,35 @@ function App() {
               </option>
             ))}
           </select>
+          <label className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600">
+            Desde
+            <input
+              type="date"
+              value={desde}
+              onChange={(e) => setDesde(e.target.value)}
+              className="bg-transparent text-xs text-slate-600 focus:outline-none"
+            />
+          </label>
+          <label className="flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs text-slate-600">
+            Hasta
+            <input
+              type="date"
+              value={hasta}
+              onChange={(e) => setHasta(e.target.value)}
+              className="bg-transparent text-xs text-slate-600 focus:outline-none"
+            />
+          </label>
+          {(desde || hasta) && (
+            <button
+              onClick={() => {
+                setDesde("");
+                setHasta("");
+              }}
+              className="rounded-lg px-2 py-1.5 text-xs font-medium text-indigo-500 hover:text-indigo-700"
+            >
+              Limpiar fechas ✕
+            </button>
+          )}
         </div>
 
         {isLoading && (

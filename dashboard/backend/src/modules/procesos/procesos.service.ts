@@ -21,20 +21,30 @@ export interface FiltrosProcesos {
   hasta?: string;
 }
 
+// "hasta" debe cubrir el día completo en hora Bogotá, no cortar a medianoche UTC (Bogotá es
+// UTC-5 todo el año, sin horario de verano) — por eso se usa como límite EXCLUSIVO del día
+// siguiente (00:00 Bogotá del día después de "hasta"), igual lógica que inicioDiaBogota() más
+// abajo para "hoy". Filtra por createdAt (cuándo el proceso entró al tablero), no por la fecha
+// real de adjudicación/firma — pedido del usuario (2026-10-27), ver también el orden por
+// createdAt desc: los procesos más nuevos quedan primero en vez de ordenarse por urgencia.
+function inicioDiaBogotaDe(fechaYYYYMMDD: string): Date {
+  return new Date(`${fechaYYYYMMDD}T05:00:00.000Z`); // 00:00 Bogotá = 05:00 UTC
+}
+
 export function listarProcesos(filtros: FiltrosProcesos = {}) {
+  const desde = filtros.desde ? inicioDiaBogotaDe(filtros.desde) : undefined;
+  const hasta = filtros.hasta
+    ? new Date(inicioDiaBogotaDe(filtros.hasta).getTime() + 24 * 60 * 60 * 1000)
+    : undefined;
+
   return prisma.proceso.findMany({
     where: {
       estadoSecop: filtros.estadoSecop || undefined,
       estadoComercial: filtros.estadoComercial || undefined,
-      ...(filtros.desde || filtros.hasta
-        ? {
-            createdAt: {
-              gte: filtros.desde ? new Date(filtros.desde) : undefined,
-              lte: filtros.hasta ? new Date(filtros.hasta) : undefined,
-            },
-          }
-        : {}),
+      ...(desde || hasta ? { createdAt: { gte: desde, lt: hasta } } : {}),
     },
+    // Más nuevos primero — pedido del usuario (2026-10-27). El dashboard ya no reordena esto
+    // por urgencia (ver ProcesosTable.tsx), así que este orden es el que ve el usuario final.
     orderBy: { createdAt: "desc" },
   });
 }
@@ -59,12 +69,10 @@ const RANGO_ESTADO: Record<string, number> = { adjudicado: 1, celebrado: 2 };
 const CUPO_DIARIO_LEADS = Number(process.env.CUPO_DIARIO_LEADS ?? 80);
 
 function inicioDiaBogota(): Date {
-  // "en-CA" da YYYY-MM-DD; se interpreta como medianoche UTC, que basta para delimitar el día
-  // igual que ya se hace en otras fechas del scout (ver scout/src/client.ts, fechaBogota) —
-  // Bogotá no tiene horario de verano, UTC-5 todo el año, por lo que 00:00 UTC de "hoy" cae
-  // dentro del mismo día de Bogotá para el rango de horas en que corre este cron.
+  // "en-CA" da YYYY-MM-DD de hoy en hora Bogotá — igual que ya se hace en otras fechas del
+  // scout (ver scout/src/client.ts, fechaBogota).
   const hoy = new Date().toLocaleDateString("en-CA", { timeZone: "America/Bogota" });
-  return new Date(`${hoy}T05:00:00.000Z`); // 00:00 Bogotá = 05:00 UTC
+  return inicioDiaBogotaDe(hoy);
 }
 
 export async function obtenerCupoDiario() {
